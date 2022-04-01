@@ -44,7 +44,8 @@ def generate_point_cloud(number_of_points: int, points_dimension: int, amplifier
     return amplifier * np.random.rand(number_of_points, points_dimension)
 
 
-def gradient_descent(point_cloud, hom_dim, number_of_points_in_dgm, n_epochs, gif_path, x_low, x_high, y_low, y_high):
+def gradient_descent(point_cloud, hom_dim, number_of_points_in_dgm, n_epochs, gif_path, x_low, x_high, y_low, y_high,
+                     verbose=False):
     paint_point_cloud(point_cloud, gif_path, -1, x_low, x_high, y_low, y_high)
     point_cloud_init = tf.identity(point_cloud)
     point_cloud_var = tf.Variable(initial_value=point_cloud_init, trainable=True)
@@ -55,8 +56,15 @@ def gradient_descent(point_cloud, hom_dim, number_of_points_in_dgm, n_epochs, gi
                                                                             number_of_points_in_dgm)
             # persistences = dgm_from_indices[:, 1] - dgm_from_indices[:, 0]
             # loss = tf.math.reduce_sum(persistences)
-            loss = -tf.math.reduce_sum(tf.square(.5 * (dgm_from_indices[:, 1] - dgm_from_indices[:, 0])))
+            if hom_dim == 0:
+                # Minimizing number of components
+                loss = -tf.math.reduce_sum(tf.square(.5 * dgm_from_indices[:, 1]))
+            else:
+                # Maximizing number of cycles
+                loss = -tf.math.reduce_sum(tf.square(.5 * (dgm_from_indices[:, 1] - dgm_from_indices[:, 0])))
         gradients = tape.gradient(loss, point_cloud_var)
+        if verbose:
+            print(f'Training step: {epoch} completed')
         optimizer.apply_gradients(zip([gradients], [point_cloud_var]))
         paint_point_cloud(point_cloud_var, gif_path, epoch, x_low, x_high, y_low, y_high)
 
@@ -64,17 +72,17 @@ def gradient_descent(point_cloud, hom_dim, number_of_points_in_dgm, n_epochs, gi
 def main():
     gif_folder_path = './gif'
     create_path(gif_folder_path)
-    hom_dim = 1
+    hom_dim = 0
     number_of_points = 300
     number_of_dimensions = 2
     n_epochs = 100
-    number_of_points_in_dgm = 50
+    number_of_points_in_dgm = 1000
     amplifier = 1
     init_point_cloud = generate_point_cloud(number_of_points, number_of_dimensions, amplifier)
     x_low, x_high = -0.1, amplifier + 0.1
     y_low, y_high = -0.1, amplifier + 0.1
     gradient_descent(init_point_cloud, hom_dim, number_of_points_in_dgm, n_epochs, gif_folder_path,
-                     x_low, x_high, y_low, y_high)
+                     x_low, x_high, y_low, y_high, verbose=True)
     build_gif(gif_folder_path)
 
 
